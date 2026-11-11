@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Group Taxation Cue Board</title>
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Cue Board">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+</head>
+<body>
+
+<style>
+/* Plain black, white and gray. The phone's own system font. Emphasis comes from inverting (white block, black text), never from color. */
+:root {
+  --bg: #000000; --surface: #0E0E0E; --surface-2: #1A1A1A; --ink: #FFFFFF; --muted: #8E8E8E;
+  --line: #262626; --line-2: #3A3A3A;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { background: var(--bg); color: var(--ink); font: 400 16px/1.45 var(--font); margin: 0; -webkit-font-smoothing: antialiased;
+  padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(100px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)) }
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap }
+.brand { font: 600 20px/1.2 var(--font); letter-spacing: -.01em }
+.pill { font: 500 12px/1 var(--font); padding: 6px 10px; border-radius: 99px; border: 1px solid var(--line-2); color: var(--muted); display: inline-flex; gap: 6px; align-items: center }
+.pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted) }
+.pill.live { color: var(--ink) } .pill.live i { background: var(--ink) }
+.prog { display: flex; align-items: center; gap: 10px }
+.prog .track { flex: 1; height: 4px; border-radius: 99px; background: var(--surface-2); overflow: hidden }
+.prog .track span { display: block; height: 100%; width: 0; background: var(--ink); transition: width .3s }
+.prog b { font: 500 13px/1 var(--font); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right }
+
+.label { font: 500 12px/1.3 var(--font); color: var(--muted) }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { font: 500 15px/1 var(--font); padding: 10px 14px; border-radius: 99px; border: 1px solid var(--line-2); background: transparent; color: var(--ink); cursor: pointer; text-transform: none; letter-spacing: 0 }
+.chip[aria-pressed="true"] { background: var(--ink); color: #000; border-color: var(--ink) }
+.chip:focus-visible, button:focus-visible, summary:focus-visible, .run li:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px }
+
+/* your status: inverted when it's you */
+.me { border-radius: 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px }
+.me .big { font: 600 22px/1.2 var(--font); letter-spacing: -.01em }
+.me .hint { color: var(--muted) }
+.me.on { background: var(--ink); color: #000; border-color: var(--ink) }
+.me.on .label, .me.on .hint { color: #555 }
+.me.next { border-color: var(--ink) }
+.me.soon { border-color: var(--line-2) }
+.me details { margin-top: 6px }
+.me summary { cursor: pointer; font-weight: 500; font-size: 15px; text-decoration: underline; text-underline-offset: 3px }
+.me details p { margin: 8px 0 0; white-space: pre-line; font-size: 16px; line-height: 1.5; color: #D6D6D6 }
+
+/* on stage now */
+.now { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 8px }
+.shot { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; background: var(--surface-2); object-fit: cover }
+.now .inner { padding: 4px 4px 2px; display: flex; flex-direction: column; gap: 8px }
+.now .row { display: flex; justify-content: space-between; align-items: center; gap: 10px }
+.slideno { font: 500 13px/1 var(--font); font-variant-numeric: tabular-nums; color: var(--muted) }
+.slideno b { font-weight: 600; color: var(--ink) }
+.navrow { display: grid; grid-template-columns: 72px 1fr 72px; gap: 10px; align-items: center }
+.navrow .who { font: 600 clamp(28px, 9vw, 38px)/1.05 var(--font); letter-spacing: -.02em; text-align: center; min-width: 0; overflow-wrap: anywhere }
+.navrow button { height: 64px; padding: 0; font-size: 22px; line-height: 1; border-radius: 14px }
+.now .title { font-size: 15px; color: #CFCFCF; overflow-wrap: anywhere }
+.tag { align-self: flex-start; font: 500 12px/1 var(--font); padding: 6px 9px; border-radius: 6px; border: 1px solid var(--line-2); color: var(--ink) }
+.also { font-size: 14px; color: var(--muted) }
+.bar { height: 3px; background: var(--surface-2); border-radius: 99px; overflow: hidden }
+.bar span { display: block; height: 100%; background: var(--ink); width: 0; transition: width .3s }
+#blockLeft { font-weight: 400 }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; grid-template-columns: 1fr 108px; gap: 3px 12px; align-items: center; min-width: 0 }
+.card .v { font: 600 22px/1.15 var(--font); letter-spacing: -.01em; overflow-wrap: anywhere }
+.card .s { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums }
+.card .thumb { grid-column: 2; grid-row: 1 / span 3; width: 108px; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; background: var(--surface-2) }
+
+/* buttons: outlined gray; primary is solid white */
+.controls { display: grid; grid-template-columns: 1fr 2fr; gap: 10px }
+button { font: 600 16px/1 var(--font); border: 1px solid var(--line-2); border-radius: 14px; padding: 16px 12px; cursor: pointer; color: var(--ink); background: var(--surface-2) }
+button:active:not(:disabled) { opacity: .7 }
+button.primary { background: var(--ink); color: #000; border-color: var(--ink) }
+button:disabled { opacity: .3; cursor: default }
+.hint { font-size: 13px; color: var(--muted) }
+.me .say { margin-top: 10px; background: #000; color: #fff; border-color: #000 }
+
+.script { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px }
+.script p { margin: 0; font-size: 17px; line-height: 1.55; color: #E6E6E6; white-space: pre-line; overflow-wrap: anywhere }
+
+ol.run { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px; overflow: hidden }
+.run li { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; cursor: pointer; border-top: 1px solid var(--line); background: var(--surface) }
+.run li:first-child { border-top: 0 }
+.run li .n { font: 500 14px/1 var(--font); color: var(--muted); font-variant-numeric: tabular-nums }
+.run li .t { min-width: 0 } .run li .t b { display: block; font-weight: 500 } .run li .t span { font-size: 13px; color: var(--muted) }
+.run li .m { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums }
+.run li.done { opacity: .4 }
+.run li.cur { background: var(--ink); color: #000 } .run li.cur .n, .run li.cur .t span, .run li.cur .m { color: #555 }
+.run li.mine .t b::after { content: " (you)"; color: var(--muted); font-weight: 400 }
+.run li.cur.mine .t b::after { color: #555 }
+
+details.all { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px }
+details.all > summary { cursor: pointer; font-weight: 500 }
+.slides { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 480px; overflow-y: auto }
+.slides li { display: grid; grid-template-columns: 96px 1fr; gap: 10px; padding: 6px; border-radius: 8px; cursor: pointer; font-size: 14px; align-items: center }
+.slides li img { width: 96px; aspect-ratio: 16 / 9; border-radius: 4px; object-fit: cover; background: var(--surface-2) }
+.slides li .w { display: block; color: var(--muted); font-size: 12.5px }
+.slides li.cur { background: var(--surface-2) }
+
+.fab { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: min(528px, calc(100% - 32px));
+  background: var(--surface-2); color: var(--ink); border-color: var(--line-2); font-size: 16px; padding: 18px 14px; z-index: 5; box-shadow: 0 0 0 6px var(--bg) }
+.fab.go { background: var(--ink); color: #000; border-color: var(--ink) }
+.sheet { position: fixed; inset: 0; z-index: 10; background: var(--bg); display: flex; flex-direction: column;
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)) }
+.sheet .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; max-width: 640px; width: 100%; margin: 0 auto }
+.sheet .top b { font: 600 22px/1.2 var(--font) }
+.sheet .x { padding: 10px 14px; font-size: 14px }
+.sheet .body { flex: 1; overflow-y: auto; max-width: 640px; width: 100%; margin: 12px auto; display: flex; flex-direction: column; gap: 14px }
+.sheet .body img { width: 46%; max-width: 240px; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover }
+.sheet .body p { margin: 0; font-size: 22px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere }
+.sheet .handoff { font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px }
+.sheet .controls { max-width: 640px; width: 100%; margin: 0 auto }
+@media (prefers-reduced-motion: reduce) { .bar span, .prog .track span { transition: none } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">Cue Board</div>
+    <span class="pill" id="sync"><i></i><span id="syncText">Connecting…</span></span>
+  </header>
+  <div class="prog" aria-hidden="true"><div class="track"><span id="allBar"></span></div><b id="allNo">1/66</b></div>
+
+  <section aria-labelledby="meLabel">
+    <div class="label" id="meLabel" style="margin-bottom:8px">Pick your name</div>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <div class="me" id="meCard" hidden>
+    <div class="label" id="meName"></div>
+    <div class="big" id="meBig"></div>
+    <div class="hint" id="meSub"></div>
+    <button class="say" id="meSay" hidden>Show your script</button>
+    <details id="meScriptBox" hidden><summary id="meScriptHead">Read your next lines</summary><p id="meScript"></p></details>
+  </div>
+
+  <section class="now" aria-live="polite">
+    <img class="shot" id="nowShot" alt="">
+    <div class="inner">
+      <div class="row">
+        <div class="label">On stage now</div>
+        <div class="slideno">Slide <b id="slideNo">1</b> / <span id="slideTotal">66</span></div>
+      </div>
+      <div class="navrow">
+        <button id="prev" aria-label="Previous slide">◀</button>
+        <div class="who" id="nowWho">Dwight</div>
+        <button id="next" class="primary" aria-label="Next slide">▶</button>
+      </div>
+      <div class="also" id="nowAlso" hidden></div>
+      <div class="title" id="nowTitle"></div>
+      <div class="tag" id="nowTag" hidden></div>
+      <div class="bar" aria-hidden="true"><span id="blockBar"></span></div>
+      <div class="slideno" id="blockLeft" style="font-size:13px"></div>
+    </div>
+  </section>
+
+  <div class="hint" id="ctrlHint" style="margin-top:-6px"></div>
+
+  <div class="card">
+    <div class="label">Up next</div>
+    <div class="v" id="nextWho">—</div>
+    <div class="s" id="nextWhen"></div>
+    <img class="thumb" id="nextShot" alt="">
+  </div>
+
+
+  <section class="script" aria-labelledby="scriptHead">
+    <div class="label" id="scriptHead">Script · slide 1</div>
+    <p id="scriptText"></p>
+  </section>
+
+  <section>
+    <div class="label" style="margin-bottom:8px">Run of show</div>
+    <ol class="run" id="run"></ol>
+  </section>
+
+  <details class="all">
+    <summary id="allSum">All slides</summary>
+    <ol class="slides" id="slides"></ol>
+  </details>
+
+  <p class="hint">Times are estimates from the speaker notes (about 140 words a minute). Tap a part or a slide to jump there.</p>
+</div>
+
+<button class="fab" id="fab">Show script</button>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetHead" hidden>
+  <div class="top">
+    <div><div class="label" id="sheetSub">Slide 1 / 66</div><b id="sheetHead">Dwight</b></div>
+    <button class="x" id="sheetClose">Close ✕</button>
+  </div>
+  <div class="body">
+    <img id="sheetShot" alt="">
+    <p id="sheetText"></p>
+    <div class="handoff" id="sheetNext"></div>
+  </div>
+  <div class="controls">
+    <button id="sPrev" aria-label="Previous slide">◀ Back</button>
+    <button id="sNext" class="primary" aria-label="Next slide">Next slide ▶</button>
+  </div>
+</div>
+
+<script>
+const SLIDES = [[1, "Taxation in the Philippines", "Rudolf", "", 25, "", "Good morning! We are Group Taxation. Our topic is Taxation in the Philippines, from Module 7. Taxes are more than a payslip deduction or the extra peso at the store. They are a State power, a legal system, and a question of fairness. We will cover the whole module, then test it on one case: TRAIN and household budgets."], [2, "Attention, taxpayers: this is a routine audit", "Rudolf", "", 50, "", "(Say this in a serious, official voice, then smile.) Good morning, taxpayers! This is a routine audit… of what you know about taxes. We are Group Taxation, but today you can call us the Bureau of Interesting Revenue. Here's what we have for you: eight BIR-approved loopholes, real and legal ways the law lets people pay less, and every single one is cited from the actual law. Then a game called Legal or Jail, where you decide if something is smart tax planning or a criminal case. And one big question we will answer with evidence: did the TRAIN Law make taxation fairer for ordinary Filipino households? Disclaimer: we are not the real BIR, so please still file your returns. Each of our eight agents will reveal one BIR-approved loophole, and I'll host the game at the end. First, our key question."], [3, "Our key question and main argument", "Rudolf", "", 40, "", "Our key question: Did the TRAIN Law make taxation fairer for ordinary households, and what would make tax reform both fair and accountable? It matters because everyone pays tax, even people who pay no income tax, through VAT and excise in prices. Our main argument, which is our group's interpretation: TRAIN made income tax more progressive and raised take-home pay for formal workers, but its consumption taxes weighed relatively more on poorer and informal households. Cash transfers helped but did not fully offset this. So fair reform needs well-targeted mitigation and clear accountability for spending. Jared Sevillon will now show our first loophole."], [4, "Your tita's balikbayan box: how much can it hold tax-free?", "Jared", "", 60, "Loophole #1", "Before we start, our first BIR-approved loophole, because it's in almost every Filipino family. (Ask the class:) How much can a balikbayan box hold before duties kick in? (Click.) Up to 150,000 pesos worth, three times a year, completely duty-free and tax-free, under Section 800 of the Customs Modernization and Tariff Act. The catch: it must be personal or household items, not goods for resale. This already shows our point: tax law is full of choices about who pays and who doesn't. Dwight Wal will show you our six lenses.\n\n[Clicker: the answer card appears on the first click.]"], [5, "Six lenses, one reasoning chain", "Dwight", "", 15, "", "The module says no single discipline can explain taxation, so we use six lenses: historical, legal, economic, equity, administration, and communication. They form one reasoning chain, from history to an evidence-based recommendation. Gabrielle Duldulao will start with the basic concepts."], [6, "Taxation is both a power and a civic duty", "Gabrielle", "", 30, "", "Thank you. Taxation is the power and process by which government imposes compulsory charges to raise public revenue. It is compulsory, imposed by law, and for public purposes. It is called the lifeblood of government, because the State cannot run without revenue. But the module warns: that need never justifies unlimited taxation. That is why taxation is both a power of government and a civic duty of every taxpayer."], [7, "The three inherent powers of the State", "Gabrielle", "", 30, "", "Taxation is one of the State's three inherent powers. Taxation raises money. Police power regulates conduct, like traffic laws. Eminent domain takes private property for public use, but only with just compensation. Each one has its own limit, shown on the slide. So: taxation asks how government raises money, police power asks how it regulates conduct, and eminent domain asks when it may take property."], [8, "Why governments tax, and what makes a tax", "Gabrielle", "", 15, "", "Revenue is the main reason governments tax, but taxes also redistribute resources, influence behavior, and support development. A true tax is imposed by law, usually paid in money, compulsory, and for a public purpose."], [9, "Not every government charge is a tax", "Gabrielle", "", 25, "", "Not every charge is a tax. A tax is mainly for revenue. A permit fee is for regulation, a toll is for using a facility, and a penalty punishes a violation. The quick test is at the bottom. A special assessment is charged because a public project, like a new drainage line, raises the value of your property."], [10, "Five principles of a good tax system", "Gabrielle", "", 15, "", "A good tax system follows five principles: it raises enough revenue, it is fair to ability to pay, it is practical, it is transparent, and it is accountable. We will use these as our checklist for TRAIN."], [11, "Fairness: who should carry more?", "Gabrielle", "", 30, "", "Fairness has two sides. Horizontal equity: similar people, similar treatment. Vertical equity: those who can pay more may pay more. Progressive taxes take a larger share as ability to pay rises, like our graduated income tax. Proportional taxes use one flat rate. Regressive taxes take a larger share from the poor, and consumption taxes can feel regressive because poorer families spend most of what they earn. That is the heart of the TRAIN debate."], [12, "Who really pays? Tax incidence", "Gabrielle", "", 20, "", "Here is a key idea: tax incidence, or who really pays. The business legally remits VAT, which is statutory incidence. But part of the tax may move into the price, so the consumer bears it. That is economic incidence. Remember this; Sheyda Palpal will use it later."], [13, "An award you never applied for may be tax-free", "Gabrielle", "", 60, "Loophole #2", "Loophole number two. (Click.) If you win an award for scientific, literary, artistic or civic achievement, and you never applied for it, the prize is excluded from your income. That's Section 32(B)(7)(c) of the Tax Code. Prizes for athletes in sanctioned sports competitions are excluded too, so Olympic prize money isn't taxed like a salary. The catch: if you joined a contest to win it, it's generally taxable. This connects to our concept slides: the law, not the government's mood, decides what counts as taxable income. Jared will continue.\n\n[Clicker: the answer card appears on the first click.]"], [14, "Avoidance vs. evasion, and the compliance cycle", "Jared", "", 25, "", "Thank you. Avoidance is legal: using lawful ways to lower your tax. Evasion is illegal: hiding income or faking records, and it shifts the burden to honest taxpayers. On the right is the compliance cycle: register, keep records, file, pay, and respond to notices. Remember that evasion is not a victimless act: when some people cheat, honest taxpayers end up carrying more."], [15, "Taxpayer duties and rights go together", "Jared", "", 15, "", "Taxpayers have duties, like filing honestly and paying on time, and rights, like due process and the right to question an assessment. Next, let's look at how Philippine taxation developed."], [16, "Taxation history is a history of power", "Jared", "", 15, "", "The module says the history of taxation is a history of power: who collects, who pays, who benefits, and who decides. Here is the timeline, from pre-colonial tribute to today's reforms, in eight stages."], [17, "Before and under Spanish rule", "Jared", "", 30, "", "Before colonization, datus received tribute, labor, or goods tied to protection and community duties. Spain formalized taxation through tribute, the cedula, forced labor called polo y servicios, bandala, and monopolies. When these felt coercive and unrepresented, they fueled grievance and resistance. These were not identical to modern taxes, but they show that public contribution existed long before colonial rule. Under Spain, tribute and the cedula also helped the colonial government identify and control its subjects."], [18, "How colonial taxes touched daily life", "Jared", "", 15, "", "This table shows how colonial taxes touched daily life: forced labor took people from their farms, bandala dictated what they produced, and the cedula marked them as colonial subjects."], [19, "Can you be jailed for not paying your cedula?", "Jared", "", 65, "Loophole #3", "Loophole number three, straight from history. Under Spain, the cedula was a symbol of colonial control; Katipuneros famously tore theirs up. So, can you go to jail today for not paying it? (Click.) No. Article III, Section 20 of the Constitution says no one shall be imprisoned for non-payment of a poll tax. In 1935, in People versus Linsañgan, the Supreme Court threw out a conviction for an unpaid cedula because of this rule. From a tool of colonial control to a right in our Constitution: that's taxation history as a history of power. The catch: you still owe it; you just can't be jailed for it.\n\n[Clicker: the answer card appears on the first click.]"], [20, "From revolution to republic", "Jared", "", 25, "", "The First Republic learned that independence also needs legitimate public funds. The Americans built a bureaucratic system, and the BIR traces its roots there. War brought scarcity and inflation, and after independence, taxes funded rebuilding the nation. The Commonwealth period built institutions for self-government before the war disrupted trade, production, and public finance."], [21, "Modern tax coding: 1977 to today", "Jared", "", 25, "", "Modern tax law took shape with the 1977 Tax Code, VAT in 1988, the 1997 Tax Code, and Expanded VAT in 2005, leading to today's reforms like TRAIN. Notice the pattern: each reform responds to the problems of its time, and consumption taxes like VAT became more and more important to government revenue. Kurt King Magastino will explain the legal bases."], [22, "Five legal pillars of the tax system", "Kurt", "", 15, "", "Thank you. Taxation is powerful because it is legal, and limited because it is legal. It rests on five layers: the Constitution, the National Internal Revenue Code, the Local Government Code, customs laws, and revenue regulations."], [23, "The Constitution sets the ground rules", "Kurt", "", 40, "", "The key rule is Article VI, Section 28: \"The rule of taxation shall be uniform and equitable. The Congress shall evolve a progressive system of taxation.\" Other rules are on the right. Courts enforce these limits: in Kapatiran v. Tan, the Supreme Court upheld VAT against the claim that it was regressive. For example, revenue and tariff bills must start in the House of Representatives, and no one can be jailed for failing to pay a poll tax. Due process and equal protection also limit how taxes are imposed and collected."], [24, "Who does what in the tax system", "Kurt", "", 15, "", "Six institutions run the system. Congress makes tax laws, the DOF sets policy, the BIR and Customs collect, LGUs collect local taxes, and the Court of Tax Appeals settles disputes."], [25, "The statutes: NIRC, LGC, and customs laws", "Kurt", "", 25, "", "Three statutes do most of the work: the Tax Code for national taxes, the Local Government Code for local taxes that fund local services, and customs laws for imports. The Tax Code is amended by reform laws like TRAIN. Local taxes like real property tax fund roads, markets, and health programs, so they connect directly to local accountability."], [26, "The taxing power is broad, but not absolute", "Kurt", "", 25, "", "The taxing power is broad but not absolute. The Constitution sets limits like due process and uniformity. Inherent limits require public purpose and stop the State from taxing beyond its jurisdiction. Specific exemptions also protect certain charitable, religious, and educational properties, and some government functions are not taxed unless the law clearly says so."], [27, "Mall, mansion, or cemetery: which one is constitutionally tax-exempt?", "Kurt", "", 60, "Loophole #4", "Loophole number four. Mall, mansion, or cemetery: which one does the Constitution exempt from tax? (Click.) The non-profit cemetery. Article VI, Section 28, paragraph 3 exempts charitable institutions, churches, convents, mosques, non-profit cemeteries, and land used for religious, charitable or educational purposes. The catch is in the words: it must be actually, directly, and exclusively used for that purpose. So it's the use that matters, not who owns it. This is a perfect example of a constitutional limit on the taxing power.\n\n[Clicker: the answer card appears on the first click.]"], [28, "Due process: from assessment to tax court", "Kurt", "", 15, "", "If you disagree with an assessment, there is due process: notice, protest, decision, then the Court of Tax Appeals. This protects both revenue and taxpayer rights. Christine N will discuss tax reform."], [29, "Why reform? The CTRP at a glance", "Christine", "", 15, "", "Thank you. Tax systems need reform when brackets get outdated, rules get complicated, or new problems appear. The Comprehensive Tax Reform Program answers this in several packages, listed in this table, starting with TRAIN."], [30, "TRAIN, amnesty, CREATE, and sin taxes", "Christine", "", 30, "", "Each reform has a trade-off. TRAIN cut income taxes but raised indirect taxes. Amnesty boosts collection but can feel unfair to honest taxpayers. CREATE cut corporate taxes to attract investment. Sin taxes protect health but can hit the poor harder. For example, estate tax amnesty helped many families finally settle unsettled estates, but repeated amnesties may teach people to wait instead of paying on time."], [31, "Valuation, ease of paying, and the digital economy", "Christine", "", 15, "", "Three newer reforms: RA 12001 standardizes property valuation, the Ease of Paying Taxes Act makes compliance simpler and digital, and RA 12023 applies VAT to digital services like streaming."], [32, "Every reform has trade-offs", "Christine", "", 15, "", "Every reform has gains and concerns. The module's rule is to ask: what problem does it solve, who benefits, who pays, and what safeguards protect fairness? Now let's look closely at TRAIN."], [33, "R.I.P.: three loopholes that tax reform closed", "Christine", "", 65, "Loophole #5", "Loophole number five is actually three loopholes that died. (Click.) Before TRAIN, parents could give each child up to 10,000 pesos tax-free as a dowry when they married. Gone. Families could deduct funeral expenses up to 200,000 pesos from the estate. Gone, replaced by a bigger 5 million peso standard deduction. And in 2025 a new law, CMEPA, removed the tax exemption on interest from long-term deposits for new deposits. The lesson from the module: tax reform isn't just about rates. It also opens and closes loopholes.\n\n[Clicker: the answer card appears on the first click.]"], [34, "TRAIN Law: Republic Act No. 10963", "Christine", "", 35, "", "TRAIN is Republic Act 10963, Package 1 of the reform program. It was signed in December 2017 and took effect in January 2018. Its logic: cut personal income tax, and raise revenue from other taxes. Under Section 82, up to 70 percent of the extra revenue went to infrastructure and up to 30 percent to social programs. This earmarking is important, because it gives citizens a basis to ask where the money actually went. Mark Cindrick Salcedo will show what TRAIN meant for taxpayers."], [35, "TRAIN and personal income tax", "Mark", "", 35, "", "Thank you. TRAIN updated income tax brackets for the first time in years. The first 250,000 pesos a year is now tax-free, and rates rise step by step to 35 percent. But people outside the formal income-tax base got no relief, while still paying higher prices. The module's table shows the 2023 schedule: 15 percent on income just above 250,000 pesos, going up to 35 percent above 8 million pesos. That is a progressive design, matching the Constitution's directive."], [36, "What TRAIN meant for a ₱300,000 taxable income", "Mark", "", 15, "", "Here is the effect. Under the old Tax Code, a 300,000-peso taxable income owed 65,000 pesos. Under TRAIN, it owes 10,000, and from 2023 only 7,500. This is simplified, but the point is clear: salaried workers gained a lot."], [37, "VAT, excise, and estate and donor's taxes", "Mark", "", 25, "", "TRAIN also raised taxes on spending. Look at fuel: diesel had no excise before TRAIN, and by 2020 it was 6 pesos per liter. Fuel affects fares and food prices, so this spread through the economy. TRAIN also simplified estate and donor's taxes. Gasoline went from 4.35 to 10 pesos per liter. The tax on sugar-sweetened beverages links tax policy to public health."], [38, "Death and taxes: three legal moves most families don't know", "Mark", "", 70, "Loophole #6", "Loophole number six: death and taxes. (Click.) If your life insurance names a beneficiary and the policy says the designation is irrevocable, the payout stays out of your estate, so no estate tax on it. That's Section 85(E). One word makes the difference. TRAIN added two more: heirs can withdraw from a deceased person's bank account with just 6 percent withheld, and estate tax can be paid in installments over two years. These show that TRAIN wasn't only about salaries; it changed how families handle inheritance.\n\n[Clicker: the answer card appears on the first click.]"], [39, "Intended benefits and common criticisms", "Mark", "", 20, "", "Each benefit has a matching concern. Take-home pay went up, but prices rose. Revenue increased, but trust depends on how it is spent. Inflation, world oil prices, and tax changes also happened at the same time, so it is hard to isolate TRAIN's exact effect."], [40, "Mitigation: the Unconditional Cash Transfer", "Mark", "", 30, "", "To protect the poor, DSWD gave an Unconditional Cash Transfer: 200 pesos a month in 2018 and 300 in 2019 and 2020, to about 10 million households. There was also a rule to suspend fuel tax increases if oil prices spiked. The module asks four questions: was it sufficient, well-targeted, timely, and accountable? Sheyda Palpal will answer these later with evidence. First, Rudolf Javier continues."], [41, "One law, many experiences", "Rudolf", "", 20, "", "Thank you. The same law affected people differently: a worker, a commuter, a planner, a business owner, a social advocate, and a historian would each ask a different question. A strong analysis listens to all of them. Now, let's sort out the types of taxes."], [42, "Direct vs. indirect, national vs. local", "Rudolf", "", 30, "", "Taxes can be sorted by burden: direct taxes like income tax are paid by the taxpayer, while indirect taxes like VAT can be passed on through prices. And by level: national taxes go to the BIR and Customs, and local taxes go to LGUs. Notice that real property tax is both direct and local, while VAT is both indirect and national. One tax can belong to several categories."], [43, "Taxes on income and consumption", "Rudolf", "", 15, "", "Four major national taxes: income tax on earnings, VAT on value added at each stage, percentage tax for some non-VAT businesses, and excise on selected goods like fuel and cigarettes."], [44, "Why is your 3-in-1 coffee sugar-tax-free, but your soda isn't?", "Rudolf", "", 60, "Loophole #7", "Loophole number seven, for everyone who survives on 3-in-1 coffee. (Click.) TRAIN taxes sweetened drinks 6 pesos per liter, or 12 if they use high-fructose corn syrup. But the law expressly excludes instant and powdered coffee, milk products, and pure fruit juice. Drinks sweetened only with coconut sugar or stevia are also exempt. Same idea with cars: electric vehicles pay zero excise, hybrids pay half. This is what excise taxes do: they don't just raise money, they push behavior.\n\n[Clicker: the answer card appears on the first click.]"], [45, "Collection tools, transfers, local and border taxes", "Rudolf", "", 15, "", "Withholding is a way of collecting, not a separate tax. Capital gains and documentary stamp taxes apply to sales and documents, estate and donor's taxes to transfers of wealth, local taxes to community services, and customs duties to imports."], [46, "Five ways to classify any tax", "Rudolf", "", 15, "", "You can classify any tax five ways: by who bears it, who collects it, what it taxes, why, and how it is collected. Our last column applies this to TRAIN's fuel excise. Sheyda Palpal will now bring it all together."], [47, "Case study: two households under TRAIN", "Sheyda", "", 50, "", "Thank you. Let's test this with two example households; this is our illustration, not real data. Household A is an informal family: a vendor and a tricycle driver. They pay no income tax, so TRAIN's tax cut gives them nothing. But they pay more for fares, LPG, and sweetened drinks. Their help is 200 pesos a month from the UCT. Household B is a salaried worker earning 300,000 pesos. Their income tax drops from 65,000 to 10,000 pesos. Same law, very different results. This is economic incidence in action. Statutory incidence says the business pays the excise; economic incidence shows the family pays it at the jeepney and the sari-sari store."], [48, "What the evidence says, and where it disagrees", "Sheyda", "", 50, "", "What does the evidence say? Prices: inflation averaged 5.2 percent in 2018, but officials estimated TRAIN added less than one percentage point; oil, food, and a weak peso mattered more. Poverty: a study published by PIDS estimated TRAIN would raise household poverty by 1.72 percent, but only 0.26 percent with the cash transfer. A De La Salle study cited by the DOF found poverty fell slightly once infrastructure spending was counted. Both agree excise taxes hit the poor; the result depends on mitigation and spending. We want to be fair to both sides: the PIDS study looked mainly at the tax side, while the DOF argued the whole package, including spending, must be counted."], [49, "What the research literature adds", "Sheyda", "", 50, "", "To be fair to both sides, we also checked peer-reviewed research. Son, for the Asian Development Bank, found the poor carry much of the indirect tax burden on basics like food. But Dizon, in a 2021 journal article, simulated TRAIN and found it reduced the number of poor households. And a WHO study by Saxena and colleagues found the sugary-drink tax could prevent about 5,900 diabetes deaths, with the poorest bearing the smallest increase in burden. So our honest reading: the evidence is mixed, and the results depend on which tax, the cash transfer, and how the money is spent. Note: we read Dizon in full; the other two we checked through their abstracts."], [50, "A loophole that doesn't need a mansion", "Sheyda", "", 60, "Loophole #8", "Our last loophole, number eight, connects to our argument. (Click.) Pag-IBIG MP2 savings: under Republic Act 9679, the Fund's earnings and benefit payments are exempt from all taxes, so the dividends are tax-free, while ordinary bank interest pays 20 percent. And the law allows coverage beyond formal employees. Notice that almost every other loophole today needed a house, an insurance policy, a car, or an estate. This one only needs small regular savings. Which leads to our audit. Mark Cindrick Salcedo will take it from here.\n\n[Clicker: the answer card appears on the first click.]"], [51, "Loophole audit: who can actually use them?", "Mark", "", 55, "", "So we audited our own loopholes. Who can actually use them? Remember our two households: Household A, a vendor and a tricycle driver, and Household B, a salaried worker. The insurance trick needs a policy. The home exemption needs a house. The estate deduction needs property. The EV exemption needs an expensive car. Household A can use almost none of them, except the coffee and possibly Pag-IBIG savings. So here's our finding: most legal loopholes need formal income, property, or savings first. The households that feel TRAIN's indirect taxes the most have the fewest legal escape routes. In the module's words, that's a vertical equity problem. This is our group's analysis."], [52, "Checking TRAIN against the principles", "Mark", "", 30, "", "Now we check TRAIN against the five principles. These ratings are our group's judgment. Income tax fairness: strong. Consumption tax fairness: weak to mixed. Administration: mixed, since the cash transfer was slow to reach everyone. Accountability: it depends on clear public reports. Taxpayer rights: protected. Remember that Article VI, Section 28 asks for a progressive system, so a reform that is progressive on income but regressive on consumption gives a mixed result."], [53, "Our recommendations", "Mark", "", 40, "", "So we recommend four things, all within existing law. One: every excise increase should come with a cash transfer that adjusts for inflation and reaches informal workers. Two: publish a yearly, plain-language report on where the earmarked revenue went. Three: keep clear rules for suspending fuel tax increases. Four: teach citizens about indirect taxes and make paying easier. These answer the module's four questions. They are practical, because they build on existing powers of Congress and agencies; fair, because they target those who carry the heaviest relative burden; and accountable, because citizens can check the results. Now, Rudolf Javier will test what you've learned."], [54, "LEGAL or JAIL?", "Rudolf", "", 40, "Game intro", "And now, the moment you've been waiting for: Legal or Jail! We'll show you six real tax moves. For each one, decide: is it allowed by tax law, or is it a crime? You vote with your hands: legal, or jail. Then one of our agents reveals the answer and the law behind it. Remember the module: avoidance is legal, evasion is a crime. Let's go."], [55, "Legal or Jail? Round 1", "Rudolf", "Mark", 75, "Game round 1", "Rudolf reads: \"Your mom gives you ₱200,000 this year. Nobody pays donor's tax on it.\" Good to know: donor's tax is a 6% tax on gifts of money or property. So, is this legal, or jail? Hands up for LEGAL… hands up for JAIL… (Click to reveal.)\n\nMark explains: No donor's tax. The first ₱250,000 of gifts each year is exempt, and the 6% applies only to the excess. The legal basis is NIRC Sec. 99, as amended by RA 10963."], [56, "Legal or Jail? Round 2", "Rudolf", "Jared", 75, "Game round 2", "Rudolf reads: \"To pay less tax, a seller writes ₱1M on the deed of sale, though the buyer really paid ₱3M.\" Good to know: selling a house or land costs 6% capital gains tax, based on the price written on the deed of sale. So, is this legal, or jail? Hands up for LEGAL… hands up for JAIL… (Click to reveal.)\n\nJared explains: Tax evasion. Willfully understating the price to defeat the tax is a crime, often called a \"double deed of sale.\" The legal basis is NIRC Sec. 254 (Attempt to Evade or Defeat Tax)."], [57, "Legal or Jail? Round 3", "Rudolf", "Christine", 75, "Game round 3", "Rudolf reads: \"You win ₱8,000 in the PCSO lotto and keep every peso. No tax is taken.\" Good to know: big lotto and PCSO prizes are taxed at 20%. So, is this legal, or jail? Hands up for LEGAL… hands up for JAIL… (Click to reveal.)\n\nChristine explains: Tax-free. PCSO and Lotto winnings of ₱10,000 or less are exempt; above that, a 20% final tax applies. The legal basis is NIRC Sec. 24(B)(1), as amended by RA 10963."], [58, "Legal or Jail? Round 4", "Rudolf", "Dwight", 75, "Game round 4", "Rudolf reads: \"A busy restaurant \"forgets\" to issue receipts to customers who pay in cash.\" Good to know: receipts (now called invoices) are how the BIR tracks a business's sales, and so its taxes. So, is this legal, or jail? Hands up for LEGAL… hands up for JAIL… (Click to reveal.)\n\nDwight explains: Punishable. Businesses required to issue receipts or invoices commit an offense when they fail or refuse to. The legal basis is NIRC Sec. 264 (Failure to Issue Receipts or Invoices)."], [59, "Legal or Jail? Round 5", "Rudolf", "Kurt", 75, "Game round 5", "Rudolf reads: \"You sell your home and use all the money to buy a new home to live in, 12 months later. You pay no capital gains tax.\" Good to know: remember Round 2, selling a house normally costs 6% capital gains tax. So, is this legal, or jail? Hands up for LEGAL… hands up for JAIL… (Click to reveal.)\n\nKurt explains: Lawful. Selling your main home is exempt if you use the money to buy or build a new home within 18 months, and tell the BIR within 30 days. The legal basis is NIRC Sec. 24(D)(2)."], [60, "Legal or Jail? Round 6", "Rudolf", "Gabrielle", 75, "Game round 6", "Rudolf reads: \"A Filipino nurse working in Dubai pays no Philippine income tax on her Dubai salary.\" Good to know: Filipinos living in the Philippines pay tax on income earned anywhere in the world. So, is this legal, or jail? Hands up for LEGAL… hands up for JAIL… (Click to reveal.)\n\nGabrielle explains: Lawful. An overseas contract worker is taxable only on income from sources within the Philippines. The legal basis is NIRC Sec. 23(C)."], [61, "TRAIN and your wallet: what changed for you", "Jared", "", 30, "Citizen explainer", "Before we close, here is our public communication product: a citizen explainer of TRAIN in one page. On the left, how most workers pay less income tax. In the middle, where everyone pays more: fuel and sweet drinks, which reach you through fares and prices. On the right, rights most families don't know, including that part of TRAIN's revenue is earmarked for social programs, so citizens can ask where it went."], [62, "What we should remember", "Jared", "", 25, "", "Thank you. To conclude, here are the module's key lessons. Taxation is an inherent but limited power; it developed from tribute to modern codes; it rests on the Constitution and statutes; reform is more than changing rates; and taxes can be classified in five ways. Whenever you read a tax law, ask the five questions on the right."], [63, "More than collecting revenue", "Jared", "", 25, "", "So, did TRAIN make taxation fairer? Partly. The income tax became fairer, but consumption taxes weighed more on the poor, and the cash transfer only softened that. Taxation is more than collecting revenue. As the module says, law gives it authority, history explains its roots, economics reveals its burden, and citizenship demands fairness and accountability. Thank you! We welcome your questions."], [64, "Who did what (roles record)", "All", "", 0, "Roles record", "Roles record. Leave on screen or skip; it documents who presented what. Each member fills in the last column before submitting."], [65, "References: laws, cases & research", "All", "", 20, "", "References. Leave this on screen if anyone asks about sources."], [66, "References: government & news", "All", "", 20, "", "References. Leave this on screen if anyone asks about sources."]]; // [n, title, speaker, revealer, seconds, tag, script]
+const PEOPLE = ["Dwight","Gabrielle","Jared","Kurt","Christine","Mark","Rudolf","Sheyda"];
+const FULL = {Dwight:"Dwight Wal",Gabrielle:"Gabrielle Duldulao",Jared:"Jared Sevillon",Kurt:"Kurt King Magastino",Christine:"Christine N",Mark:"Mark Cindrick Salcedo",Rudolf:"Rudolf Javier",Sheyda:"Sheyda Palpal",All:"Everyone"};
+const PART = {Dwight:"Six lenses · Round 4 reveal",Gabrielle:"Concepts",Jared:"Loophole #1, history & conclusion",Kurt:"Legal bases",Christine:"Tax reform",Mark:"TRAIN Law & recommendations",Rudolf:"Opening, types of taxes · Game host",Sheyda:"Case analysis & evidence",All:"References"};
+const N = SLIDES.length;
+const $ = id => document.getElementById(id);
+const img = i => "slides/s" + String(SLIDES[i][0]).padStart(2, "0") + ".jpg";
+const store = { get(k){ try { return localStorage.getItem(k) } catch(e){ return null } }, set(k,v){ try { localStorage.setItem(k,v) } catch(e){} } };
+
+const BLOCKS = [];
+SLIDES.forEach((s, i) => {
+  const last = BLOCKS[BLOCKS.length-1];
+  if (last && last.who === s[2]) { last.end = i; last.sec += s[4]; }
+  else BLOCKS.push({ who: s[2], start: i, end: i, sec: s[4] });
+});
+const blockOf = i => BLOCKS.findIndex(b => i >= b.start && i <= b.end);
+const fmt = sec => { sec = Math.max(0, Math.round(sec)); const m = Math.floor(sec/60), s = sec%60; return m + ":" + String(s).padStart(2,"0"); };
+const sumSec = (a, b) => { let t = 0; for (let i = a; i < b; i++) t += SLIDES[i][4]; return t; };
+
+let slide = 0;
+let me = store.get("gt.me") || "";
+if (!PEOPLE.includes(me)) me = "";
+let mode = "local"; // "live" | "readonly" | "local"
+let canWrite = true;
+
+function render() {
+  const i = slide, s = SLIDES[i];
+  $("nowShot").src = img(i); $("nowShot").alt = "Slide " + s[0] + ": " + s[1];
+  $("slideNo").textContent = s[0]; $("slideTotal").textContent = N;
+  $("allBar").style.width = Math.max(4, 100 * (i + 1) / N) + "%"; $("allNo").textContent = s[0] + "/" + N;
+  $("nowWho").textContent = s[2] === "All" ? "Everyone" : s[2];
+  $("nowTitle").textContent = s[1];
+  $("nowTag").hidden = !s[5]; $("nowTag").textContent = s[5];
+  $("nowAlso").hidden = !s[3]; $("nowAlso").textContent = s[3] ? s[3] + " reveals the answer" : "";
+  const bi = blockOf(i), b = BLOCKS[bi];
+  $("blockBar").style.width = (100 * (i - b.start) / (b.end - b.start + 1)) + "%";
+  const left = b.end - i;
+  $("blockLeft").textContent = left === 0 ? "Last slide of this part" : left + " more slide" + (left>1?"s":"") + " in " + (s[2]==="All"?"this part":s[2] + "'s part") + " · ~" + fmt(sumSec(i, b.end+1)) + " left";
+  const nb = BLOCKS[bi+1];
+  if (nb) {
+    $("nextWho").textContent = nb.who === "All" ? "Everyone" : nb.who;
+    $("nextWhen").textContent = "in " + (nb.start - i) + " slide" + (nb.start-i>1?"s":"") + " · ~" + fmt(sumSec(i, nb.start));
+    $("nextShot").hidden = false; $("nextShot").src = img(nb.start); $("nextShot").alt = "Slide " + SLIDES[nb.start][0];
+  } else { $("nextWho").textContent = "The end"; $("nextWhen").textContent = "Last part"; $("nextShot").hidden = true; }
+  if (i + 1 < N) { const pre = new Image(); pre.src = img(i + 1); }
+  $("scriptHead").textContent = "Script · slide " + s[0];
+  $("scriptText").textContent = s[6] || "No script for this slide.";
+  $("prev").disabled = !canWrite || i === 0; $("next").disabled = !canWrite || i === N-1;
+  renderMe(); renderRun(); renderSheet();
+  [...$("slides").children].forEach((li, k) => li.classList.toggle("cur", k === i));
+}
+
+function myTurn() { const s = SLIDES[slide]; return !!me && (s[2] === me || s[3] === me); }
+function renderSheet() {
+  const i = slide, s = SLIDES[i];
+  const fab = $("fab"), mine = myTurn();
+  fab.classList.toggle("go", mine);
+  fab.textContent = mine ? "Your turn: show script" : "Show script · " + (s[2] === "All" ? "Everyone" : s[2]);
+  $("meSay").hidden = !mine;
+  $("sheetSub").textContent = "Slide " + s[0] + " / " + N + (s[5] ? " · " + s[5] : "");
+  $("sheetHead").textContent = (s[2] === "All" ? "Everyone" : s[2]) + (s[3] ? " (reveal: " + s[3] + ")" : "");
+  $("sheetShot").src = img(i); $("sheetShot").alt = "Slide " + s[0] + ": " + s[1];
+  $("sheetText").textContent = s[6] || "No script for this slide.";
+  const nx = SLIDES[i + 1];
+  $("sheetNext").textContent = nx ? (nx[2] !== s[2] ? "After this: " + (nx[2] === "All" ? "Everyone" : nx[2]) + " takes over." : "Next slide: " + nx[1]) : "Last slide.";
+  $("sPrev").disabled = !canWrite || i === 0; $("sNext").disabled = !canWrite || i === N-1;
+  $("sheet").querySelector(".body").scrollTop = 0;
+}
+function openSheet() { $("sheet").hidden = false; document.body.style.overflow = "hidden"; $("sheetClose").focus(); wake(); }
+function closeSheet() { $("sheet").hidden = true; document.body.style.overflow = ""; $("fab").focus(); }
+
+function renderMe() {
+  [...$("chips").children].forEach(c => c.setAttribute("aria-pressed", String(c.dataset.p === me)));
+  const card = $("meCard");
+  if (!me) { card.hidden = true; return; }
+  card.hidden = false; card.className = "me";
+  $("meName").textContent = FULL[me] + " · " + PART[me];
+  const i = slide, s = SLIDES[i];
+  if (s[2] === me || s[3] === me) { card.hidden = true; return; } // your turn: the bottom button takes over
+  let k = -1; for (let j = i; j < N; j++) if (SLIDES[j][2] === me || SLIDES[j][3] === me) { k = j; break; }
+  const showScript = j => { $("meScriptBox").hidden = j < 0 || j === i;
+    if (j >= 0 && j !== i) { $("meScriptHead").textContent = "Read your next lines (slide " + SLIDES[j][0] + ")"; $("meScript").textContent = SLIDES[j][6] || ""; } };
+  if (s[2] === me) {
+    const left = BLOCKS[blockOf(i)].end - i;
+    card.classList.add("on"); $("meBig").textContent = "You're ON. Go!";
+    $("meSub").textContent = left ? left + " more slide" + (left>1?"s":"") + " in your part. Your script is below." : "Last slide of your part. Say your handoff line.";
+    showScript(-1); return;
+  }
+  if (s[3] === me) { card.classList.add("on"); $("meBig").textContent = "Your reveal: " + s[5]; $("meSub").textContent = "Explain the answer after the click. Script is below."; showScript(-1); return; }
+  if (k < 0) { $("meBig").textContent = "You're done. Nice work."; $("meSub").textContent = "Stay ready for questions about your part."; showScript(-1); return; }
+  const t = sumSec(i, k), role = SLIDES[k][3] === me ? "your reveal (" + SLIDES[k][5] + ")" : "your part";
+  const nextBlock = BLOCKS[blockOf(i)+1];
+  if (nextBlock && nextBlock.start === k) { card.classList.add("next"); $("meBig").textContent = "You're next. Get ready."; }
+  else if (t <= 180) { card.classList.add("soon"); $("meBig").textContent = "Up in ~" + fmt(t); }
+  else $("meBig").textContent = "Up in " + (k - i) + " slides";
+  $("meSub").textContent = "Slide " + SLIDES[k][0] + " starts " + role + " · ~" + fmt(t) + " from now";
+  showScript(k);
+}
+
+function renderRun() {
+  const run = $("run"), cb = blockOf(slide);
+  if (!run.children.length) {
+    BLOCKS.forEach((b, k) => {
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="n"></span><span class="t"><b></b><span></span></span><span class="m"></span>';
+      li.children[0].textContent = k + 1;
+      li.querySelector("b").textContent = FULL[b.who];
+      li.querySelector(".t span").textContent = PART[b.who] + " · slides " + SLIDES[b.start][0] + (b.end > b.start ? "–" + SLIDES[b.end][0] : "");
+      li.children[2].textContent = "~" + fmt(b.sec);
+      li.tabIndex = 0;
+      li.addEventListener("click", () => go(b.start));
+      li.addEventListener("keydown", e => { if (e.key === "Enter") go(b.start); });
+      run.appendChild(li);
+    });
+  }
+  [...run.children].forEach((li, k) => {
+    li.classList.toggle("done", k < cb); li.classList.toggle("cur", k === cb);
+    li.classList.toggle("mine", !!me && (BLOCKS[k].who === me || SLIDES.slice(BLOCKS[k].start, BLOCKS[k].end+1).some(s => s[3] === me)));
+  });
+}
+
+function buildStatic() {
+  PEOPLE.forEach(p => {
+    const b = document.createElement("button"); b.className = "chip"; b.dataset.p = p; b.textContent = p;
+    b.addEventListener("click", () => { me = me === p ? "" : p; store.set("gt.me", me); render(); wake(); });
+    $("chips").appendChild(b);
+  });
+  SLIDES.forEach((s, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = '<img loading="lazy" alt=""><span><span class="t"></span><span class="w"></span></span>';
+    li.querySelector("img").src = img(i);
+    li.querySelector(".t").textContent = s[0] + ". " + s[1];
+    li.querySelector(".w").textContent = s[2] === "All" ? "Everyone" : s[2] + (s[3] ? " · reveal: " + s[3] : "");
+    li.addEventListener("click", () => go(i));
+    $("slides").appendChild(li);
+  });
+}
+
+// ---- syncing
+let ref = null, writing = false, dirty = false;
+function setSync(cls, text) { $("sync").className = "pill " + cls; $("syncText").textContent = text; }
+async function push() {
+  store.set("gt.slide", String(slide));
+  if (mode !== "live" || !ref) return;
+  if (writing) { dirty = true; return; }
+  writing = true;
+  try { await ref.set({ slide }); }
+  catch (e) {
+    if (e && e.code === "invalid_argument") { mode = "readonly"; canWrite = false; applyMode(); }
+    else setSync("warn", "Sync hiccup, retrying");
+  }
+  writing = false;
+  if (dirty) { dirty = false; push(); }
+}
+function go(i) {
+  if (!canWrite) return;
+  slide = Math.max(0, Math.min(N-1, i)); render(); push(); wake();
+}
+function applyMode() {
+  const ro = mode === "readonly";
+  $("ctrlHint").textContent = mode === "live" ? "Live: every phone on this page follows these taps."
+    : ro ? "Following the clicker's phone. It moves by itself."
+    : "This phone only. Tap Next as the slides change.";
+  setSync(mode === "local" ? "" : "live", mode === "live" ? "Live sync" : ro ? "Following live" : "This phone only");
+  render();
+}
+
+$("next").addEventListener("click", () => go(slide + 1));
+$("prev").addEventListener("click", () => go(slide - 1));
+$("sNext").addEventListener("click", () => go(slide + 1));
+$("sPrev").addEventListener("click", () => go(slide - 1));
+$("fab").addEventListener("click", openSheet);
+$("meSay").addEventListener("click", openSheet);
+$("sheetClose").addEventListener("click", closeSheet);
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !$("sheet").hidden) closeSheet();
+  if (e.key === "ArrowRight" || e.key === "PageDown") go(slide + 1);
+  if (e.key === "ArrowLeft" || e.key === "PageUp") go(slide - 1);
+});
+let lock = null;
+async function wake() { try { if (!lock && navigator.wakeLock) { lock = await navigator.wakeLock.request("screen"); lock.addEventListener("release", () => lock = null); } } catch (e) {} }
+
+const ls = parseInt(store.get("gt.slide") || "0", 10);
+slide = isNaN(ls) ? 0 : Math.max(0, Math.min(N-1, ls));
+buildStatic(); $("allSum").textContent = "All " + N + " slides"; applyMode();
+
+(async () => {
+  try {
+    if (!window.claude || !window.claude.use) return;
+    const db = await window.claude.use("db");
+    if (!db) return;
+    const user = await window.claude.use("user");
+    let w = null; try { w = user ? await user.can("data.write") : null; } catch (e) {}
+    ref = db.doc("show/live");
+    setSync("warn", "Connecting…");
+    let first = true;
+    const timer = setTimeout(() => { if (first) setSync("warn", "Live sync unreachable, using this phone"); }, 10000);
+    ref.onSnapshot(snap => {
+      clearTimeout(timer);
+      const d = snap.exists ? snap.data() : null;
+      if (first) {
+        first = false;
+        mode = w === false ? "readonly" : "live"; canWrite = mode === "live";
+        if (!d && canWrite) push();
+        applyMode();
+      }
+      if (d && typeof d.slide === "number") {
+        slide = Math.max(0, Math.min(N-1, d.slide));
+        store.set("gt.slide", String(slide)); render();
+      }
+    }, () => { clearTimeout(timer); mode = "local"; canWrite = true; applyMode(); });
+  } catch (e) { /* stay local */ }
+})();
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
