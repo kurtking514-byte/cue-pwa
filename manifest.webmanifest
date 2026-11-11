@@ -2,6 +2,7 @@
   "name": "Group Taxation Cue Board",
   "short_name": "Cue Board",
   "description": "Slides and scripts for the HIST100 Taxation exposition. Works offline.",
+  "id": "/cue-pwa/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

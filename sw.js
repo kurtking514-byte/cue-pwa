@@ -1,5 +1,5 @@
 // Cue Board offline cache. Version changes automatically when the content changes.
-const CACHE = "cue-board-c2ac21c652";
+const CACHE = "cue-board-614df13d71";
 const FILES = [
  "./",
  "index.html",
